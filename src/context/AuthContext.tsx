@@ -22,50 +22,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
 
-  // Check if user is already logged in
+  // Check if user is already logged in on mount and storage changes
   useEffect(() => {
-    const checkAuth = async () => {
-      const storedUser = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
-      
-      if (storedUser && token) {
-        try {
-          // Uncomment when API is ready
-          // Verify token with the server
-          // const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify`, {
-          //   method: 'GET',
-          //   headers: {
-          //     'Authorization': `Bearer ${token}`
-          //   }
-          // });
-          
-          // if (response.ok) {
-          //   setUser(JSON.parse(storedUser));
-          // } else {
-          //   localStorage.removeItem('user');
-          //   localStorage.removeItem('token');
-          // }
-
-          // For now, just set the user from localStorage
-          console.log('Found stored user:', storedUser);
+    const checkAuth = () => {
+      try {
+        setIsLoading(true);
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        
+        console.log('AuthContext checking stored auth:', { 
+          hasStoredUser: !!storedUser, 
+          hasToken: !!token 
+        });
+        
+        if (storedUser && token) {
+          // User is authenticated
           setUser(JSON.parse(storedUser));
-        } catch (error) {
-          console.error('Error verifying authentication:', error);
-          localStorage.removeItem('user');
-          localStorage.removeItem('token');
+        } else {
+          // User is not authenticated
+          setUser(null);
         }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        // Clear corrupted data
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
+    // Check auth on mount
     checkAuth();
+    
+    // Listen for storage events (for multi-tab support)
+    window.addEventListener('storage', checkAuth);
+    
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+    };
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
     try {
       console.log('Login attempt with:', username);
+      setIsLoading(true);
       
       // For now, check against environment variables
       const expectedUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
@@ -76,7 +78,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Validate credentials
       if (username !== expectedUsername || password !== expectedPassword) {
         console.error('Invalid credentials');
-        setIsLoading(false);
         return false;
       }
       
@@ -89,34 +90,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('user', JSON.stringify(mockUser));
       localStorage.setItem('token', mockToken);
       
-      // Update context
+      // Update context state
       setUser(mockUser);
       
       console.log('User set in context, login successful');
-            
-      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Login failed:', error);
-      setIsLoading(false);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = () => {
-    // Uncomment when API is ready
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${token}`
-    //     }
-    //   }).catch(error => {
-    //     console.error('Error during logout:', error);
-    //   });
-    // }
-
+    console.log('Logging out user');
+    
     // Remove user info and token
     localStorage.removeItem('user');
     localStorage.removeItem('token');
@@ -125,8 +114,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     
     // Redirect to login page
-    router.push('/login');
+    window.location.href = '/login';
   };
+
+  // Debug auth state changes
+  useEffect(() => {
+    console.log('Auth state changed:', { 
+      user: user ? `${user.username} (${user.role})` : 'null', 
+      isLoading 
+    });
+  }, [user, isLoading]);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, isLoading }}>

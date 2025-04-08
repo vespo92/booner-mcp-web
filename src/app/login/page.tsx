@@ -12,12 +12,25 @@ export default function LoginPage() {
   const { login, user, isLoading } = useAuth();
   const router = useRouter();
 
-  // If already logged in, redirect to dashboard
+  // Debug authentication state
+  useEffect(() => {
+    console.log('Login page - Auth state:', { 
+      user: user ? `${user.username} (${user.role})` : 'null', 
+      isLoading 
+    });
+  }, [user, isLoading]);
+
+  // If already logged in, redirect to dashboard 
+  // but only after authentication check is complete
   useEffect(() => {
     if (!isLoading && user) {
-      router.push('/');
+      console.log('User already authenticated, redirecting to dashboard');
+      // Use a slight delay to prevent race conditions
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,22 +43,27 @@ export default function LoginPage() {
       return;
     }
 
+    console.log('Attempting login with:', username);
+    
     try {
       const success = await login(username, password);
+      
       if (success) {
-        console.log('Login successful, manually redirecting to dashboard');
+        console.log('Login successful, redirecting to dashboard');
         // Force a hard navigation to the dashboard
         window.location.href = '/';
       } else {
         setError('Invalid username or password');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('An error occurred during login. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -55,6 +73,17 @@ export default function LoginPage() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show login form if already authenticated
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-400">Already logged in. Redirecting to dashboard...</p>
         </div>
       </div>
     );
