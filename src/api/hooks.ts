@@ -5,7 +5,8 @@ import {
   TaskResponse,
   GameServerDeployRequest,
   WebAppDeployRequest,
-  InfrastructureTaskRequest
+  InfrastructureTaskRequest,
+  SystemStatus
 } from './types';
 
 // Hook for fetching agents
@@ -174,4 +175,94 @@ export const useRunInfrastructureTask = () => {
   };
 
   return { runInfrastructureTask, response, loading, error };
+};
+
+// Hook for fetching system status with real-time updates
+export const useSystemStatus = (pollingInterval = 5000) => {
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [useWebSocket, setUseWebSocket] = useState<boolean>(true);
+
+  // Function to fetch data via REST API (fallback)
+  const fetchViaREST = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getSystemStatus();
+      setSystemStatus(response.data);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch system status');
+      console.error('REST API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!useWebSocket) return;
+
+    // Get WebSocket URL from environment variable or use default
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+    
+    try {
+      const newSocket = new WebSocket(`${wsUrl}/system/status`);
+      
+      newSocket.onopen = () => {
+        console.log('WebSocket connection established for system status');
+        setError(null);
+      };
+      
+      newSocket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setSystemStatus(data);
+          setLoading(false);
+          setError(null);
+        } catch (err: any) {
+          console.error('Error parsing WebSocket data:', err);
+        }
+      };
+      
+      newSocket.onerror = (event) => {
+        console.error('WebSocket error:', event);
+        setError('WebSocket connection error');
+        setUseWebSocket(false); // Fall back to REST API
+      };
+      
+      newSocket.onclose = () => {
+        console.log('WebSocket connection closed');
+        setSocket(null);
+      };
+      
+      setSocket(newSocket);
+      
+      // Cleanup function
+      return () => {
+        if (newSocket.readyState === WebSocket.OPEN) {
+          newSocket.close();
+        }
+      };
+    } catch (err: any) {
+      console.error('Failed to establish WebSocket connection:', err);
+      setUseWebSocket(false); // Fall back to REST API
+    }
+  }, [useWebSocket]);
+
+  // Fallback to REST API polling if WebSocket is not available
+  useEffect(() => {
+    if (useWebSocket && socket) return; // Using WebSocket, no need for polling
+    
+    // Fetch immediately
+    fetchViaREST();
+    
+    // Set up polling
+    const interval = setInterval(fetchViaREST, pollingInterval);
+    
+    return () => clearInterval(interval);
+  }, [pollingInterval, useWebSocket, socket]);
+
+  return { systemStatus, loading, error };
 };

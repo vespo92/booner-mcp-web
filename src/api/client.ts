@@ -32,6 +32,9 @@ export const api = {
   
   // Infrastructure endpoints
   runInfrastructureTask: (data: any) => apiClient.post('/infrastructure/task', data),
+  
+  // System status endpoints
+  getSystemStatus: () => apiClient.get('/system/status'),
 };
 
 export default apiClient;
