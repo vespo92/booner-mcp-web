@@ -1,3 +1,6 @@
+# NOTE: This docker-compose file is for standalone deployment of the web UI only.
+# For full system deployment, use the docker-compose.yml in the main Booner_MCP directory.
+
 version: '3'
 
 services:
@@ -9,35 +12,10 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api:8000
-      - NEXT_PUBLIC_OLLAMA_API_URL=http://10.0.0.10:11434
-    depends_on:
-      - api
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_OLLAMA_API_URL=${NEXT_PUBLIC_OLLAMA_API_URL:-http://10.0.0.10:11434}
+      - NEXT_PUBLIC_AUTH_SECRET=${AUTH_SECRET:-your_default_auth_secret}
     restart: unless-stopped
-    networks:
-      - booner-mcp-network
 
-  api:
-    image: booner-mcp-api
-    build:
-      context: ../booner-mcp-api # Adjust path if API code is elsewhere
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - NODE_ENV=production
-      - OLLAMA_API_URL=http://10.0.0.10:11434
-      - AUTH_SECRET=YOUR_AUTH_SECRET_HERE # Change this in production
-      - DATABASE_URL=sqlite:///data/database.db
-    volumes:
-      - mcp-data:/data
-    restart: unless-stopped
-    networks:
-      - booner-mcp-network
-
-volumes:
-  mcp-data:
-
-networks:
-  booner-mcp-network:
-    driver: bridge
+# No API service defined here - this is only for the web UI component
+# For full system deployment, use the docker-compose.yml in the main Booner_MCP directory
