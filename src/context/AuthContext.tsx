@@ -80,7 +80,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // const data = await response.json();
       // const { token, user } = data;
       
-      // For now, mock a successful response
+      // For now, check against environment variables
+      const expectedUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
+      const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin';
+      
+      // Validate credentials
+      if (username !== expectedUsername || password !== expectedPassword) {
+        console.error('Invalid credentials');
+        setIsLoading(false);
+        return false;
+      }
+      
       const mockUser = { username, role: 'admin' };
       const mockToken = 'mock-jwt-token';
 
