@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAgents, useSystemStatus } from '@/api/hooks';
 import Card from '@/components/Card';
 import StatsCard from '@/components/StatsCard';
@@ -14,12 +14,89 @@ interface Agent {
   status: string;
 }
 
+// Define the OllamaModel type
+interface OllamaModel {
+  name: string;
+  size: string;
+  family: string;
+  quantization: string;
+  status: string;
+}
+
 export default function DashboardContent() {
   // Get agents data from hook with real-time updates
   const { agents, loading: agentsLoading, error: agentsError } = useAgents();
   
   // Get real-time system status (updates every 3 seconds)
   const { systemStatus, loading, error: systemError } = useSystemStatus(3000);
+  
+  // State for Ollama models
+  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const [ollamaLoading, setOllamaLoading] = useState<boolean>(true);
+  const [ollamaError, setOllamaError] = useState<string | null>(null);
+
+  // Fetch Ollama models on component mount
+  useEffect(() => {
+    const fetchOllamaModels = async () => {
+      try {
+        setOllamaLoading(true);
+        
+        const ollamaUrl = process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://10.0.0.10:11434';
+        console.log('Fetching models from:', ollamaUrl);
+        
+        const response = await fetch(`${ollamaUrl}/api/tags`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch Ollama models: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Transform data into our format
+        const models = data.models || [];
+        const transformedModels = models.map((model: any) => ({
+          name: model.name,
+          size: model.size ? `${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB` : 'Unknown',
+          family: model.family || 'Unknown',
+          quantization: model.quantization || 'Unknown',
+          status: 'active'
+        }));
+        
+        setOllamaModels(transformedModels);
+        setOllamaError(null);
+      } catch (error) {
+        console.error('Error fetching Ollama models:', error);
+        setOllamaError(error instanceof Error ? error.message : 'Unknown error');
+        
+        // For demo purposes, set mock data if we can't connect
+        setOllamaModels([
+          {
+            name: 'llama3:8b',
+            size: '4.7 GB',
+            family: 'llama',
+            quantization: 'Q4_K_M',
+            status: 'active'
+          },
+          {
+            name: 'mixtral:8x7b',
+            size: '12.2 GB',
+            family: 'mixtral',
+            quantization: 'Q4_0',
+            status: 'active'
+          }
+        ]);
+      } finally {
+        setOllamaLoading(false);
+      }
+    };
+    
+    fetchOllamaModels();
+    
+    // Poll every 30 seconds
+    const interval = setInterval(fetchOllamaModels, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <>
@@ -51,6 +128,69 @@ export default function DashboardContent() {
           link="/tasks"
           linkText="View all tasks"
         />
+      </div>
+
+      {/* Ollama LLM Status Card */}
+      <div className="mt-8">
+        <Card title="Ollama LLM Status">
+          {ollamaLoading ? (
+            <div className="text-center py-8">
+              <svg className="animate-spin h-8 w-8 mx-auto text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p className="mt-2 text-gray-500 dark:text-gray-400">Loading Ollama LLM status...</p>
+            </div>
+          ) : ollamaError ? (
+            <div className="text-center py-8 text-red-500 dark:text-red-400">
+              <p>Error connecting to Ollama server: {ollamaError}</p>
+              <p className="mt-2 text-sm">Check your connection to: {process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://10.0.0.10:11434'}</p>
+              <button 
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                onClick={() => window.location.reload()}
+              >
+                Retry Connection
+              </button>
+            </div>
+          ) : ollamaModels.length === 0 ? (
+            <div className="text-center py-8 text-yellow-500 dark:text-yellow-400">
+              <p>No Ollama models found.</p>
+              <Link 
+                href="/settings"
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors inline-block"
+              >
+                Configure Ollama
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Model</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Family</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Size</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Quantization</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {ollamaModels.map((model, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{model.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{model.family}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{model.size}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{model.quantization}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <StatusBadge status={model.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">

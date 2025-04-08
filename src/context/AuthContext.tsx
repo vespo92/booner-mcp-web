@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // }
 
           // For now, just set the user from localStorage
+          console.log('Found stored user:', storedUser);
           setUser(JSON.parse(storedUser));
         } catch (error) {
           console.error('Error verifying authentication:', error);
@@ -64,25 +65,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Uncomment when API is ready
-      // const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ username, password }),
-      // });
-      
-      // if (!response.ok) {
-      //   throw new Error('Invalid credentials');
-      // }
-      
-      // const data = await response.json();
-      // const { token, user } = data;
+      console.log('Login attempt with:', username);
       
       // For now, check against environment variables
       const expectedUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
       const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin';
+      
+      console.log('Expected credentials:', expectedUsername, 'PASSWORD_LENGTH:', expectedPassword.length);
       
       // Validate credentials
       if (username !== expectedUsername || password !== expectedPassword) {
@@ -90,6 +79,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
         return false;
       }
+      
+      console.log('Login successful, creating user object');
       
       const mockUser = { username, role: 'admin' };
       const mockToken = 'mock-jwt-token';
@@ -100,6 +91,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Update context
       setUser(mockUser);
+      
+      console.log('User set in context, redirecting to dashboard');
+      
+      // Explicitly redirect here as well (in addition to the login page redirect)
+      setTimeout(() => {
+        router.push('/');
+      }, 100);
+      
       setIsLoading(false);
       return true;
     } catch (error) {
