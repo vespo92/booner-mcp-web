@@ -1,137 +1,121 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 
+// Define user type
 type User = {
   username: string;
   role: string;
 };
 
+// Define auth context type
 type AuthContextType = {
   user: User | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
+  isAuthenticated: boolean;
 };
 
+// Create context with undefined default
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Auth provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const router = useRouter();
-
-  // Check if user is already logged in on mount and storage changes
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const checkAuth = () => {
+    // Immediately check localStorage (synchronously)
+    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    
+    if (storedUser && token) {
       try {
-        setIsLoading(true);
-        const storedUser = localStorage.getItem('user');
-        const token = localStorage.getItem('token');
-        
-        console.log('AuthContext checking stored auth:', { 
-          hasStoredUser: !!storedUser, 
-          hasToken: !!token 
-        });
-        
-        if (storedUser && token) {
-          // User is authenticated
-          setUser(JSON.parse(storedUser));
-        } else {
-          // User is not authenticated
-          setUser(null);
-        }
+        const parsedUser = JSON.parse(storedUser);
+        console.log('Found stored user on init:', parsedUser.username);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
       } catch (error) {
-        console.error('Error checking authentication:', error);
-        // Clear corrupted data
+        console.error('Error parsing stored user:', error);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
-        setUser(null);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    // Check auth on mount
-    checkAuth();
+    }
     
-    // Listen for storage events (for multi-tab support)
-    window.addEventListener('storage', checkAuth);
-    
-    return () => {
-      window.removeEventListener('storage', checkAuth);
-    };
+    // Mark initialization as complete
+    setIsLoading(false);
   }, []);
-
+  
+  // Login function
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      console.log('Login attempt with:', username);
       setIsLoading(true);
       
-      // For now, check against environment variables
+      // Validate credentials against environment variables
       const expectedUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
       const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin';
       
-      console.log('Expected credentials:', expectedUsername, 'PASSWORD_LENGTH:', expectedPassword.length);
-      
-      // Validate credentials
       if (username !== expectedUsername || password !== expectedPassword) {
         console.error('Invalid credentials');
         return false;
       }
       
-      console.log('Login successful, creating user object');
+      // Create user object
+      const userData = { username, role: 'admin' };
+      const tokenValue = 'mock-jwt-token';
       
-      const mockUser = { username, role: 'admin' };
-      const mockToken = 'mock-jwt-token';
-
-      // Store user info and token
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      localStorage.setItem('token', mockToken);
+      // Store authentication data
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', tokenValue);
       
-      // Update context state
-      setUser(mockUser);
+      // Update state
+      setUser(userData);
+      setIsAuthenticated(true);
       
-      console.log('User set in context, login successful');
+      console.log('Login successful:', username);
       return true;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('Login error:', error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
-
+  
+  // Logout function
   const logout = () => {
-    console.log('Logging out user');
-    
-    // Remove user info and token
+    // Clear authentication data
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     
-    // Update context
+    // Update state
     setUser(null);
+    setIsAuthenticated(false);
     
-    // Redirect to login page
+    console.log('User logged out');
+    
+    // Force page refresh to reset any app state
     window.location.href = '/login';
   };
-
-  // Debug auth state changes
-  useEffect(() => {
-    console.log('Auth state changed:', { 
-      user: user ? `${user.username} (${user.role})` : 'null', 
-      isLoading 
-    });
-  }, [user, isLoading]);
-
+  
+  // Provide context
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout, 
+      isLoading,
+      isAuthenticated
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
