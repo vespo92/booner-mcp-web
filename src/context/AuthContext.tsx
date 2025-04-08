@@ -92,13 +92,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Update context
       setUser(mockUser);
       
-      console.log('User set in context, redirecting to dashboard');
-      
-      // Explicitly redirect here as well (in addition to the login page redirect)
-      setTimeout(() => {
-        router.push('/');
-      }, 100);
-      
+      console.log('User set in context, login successful');
+            
       setIsLoading(false);
       return true;
     } catch (error) {

@@ -33,7 +33,9 @@ export default function LoginPage() {
     try {
       const success = await login(username, password);
       if (success) {
-        router.push('/');
+        console.log('Login successful, manually redirecting to dashboard');
+        // Force a hard navigation to the dashboard
+        window.location.href = '/';
       } else {
         setError('Invalid username or password');
       }
