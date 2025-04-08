@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:docker": "node build-docker.js",
     "start": "next start",
     "lint": "next lint"
   },
