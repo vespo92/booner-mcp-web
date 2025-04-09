@@ -68,7 +68,7 @@ For production deployment, we recommend using Docker Compose:
    docker-compose up -d
    ```
 
-4. Access the web interface at `http://your-server-ip:3000`
+4. Access the web interface at `http://10.0.0.4:3000`
 
 ### GPU Support
 
@@ -101,7 +101,7 @@ The dashboard connects to the MCP API server. Endpoints include:
 The system integrates with Ollama for LLM capabilities:
 
 1. Models are loaded and managed through the Ollama API
-2. Default endpoint is `http://localhost:11434`
+2. Default endpoint is `http://10.0.0.10:11434`
 3. Supported models include `llama3`, `mixtral`, `mistral`, and `phi3`
 
 ## Folder Structure

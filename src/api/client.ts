@@ -1,12 +1,33 @@
 import axios from 'axios';
 
+// Safely determine the base URL
+const getBaseUrl = () => {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (configuredUrl && typeof configuredUrl === 'string' && configuredUrl.trim() !== '') {
+    return configuredUrl.trim();
+  }
+  // Fallback to localhost if not configured
+  return 'http://localhost:8000';
+};
+
 // Create base axios instance
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // Set a timeout to prevent hanging requests
 });
+
+// Add interceptors for handling errors consistently
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Log error details to help with debugging
+    console.error('API request failed:', error.message, error.config?.url);
+    return Promise.reject(error);
+  }
+);
 
 // API endpoints
 export const api = {

@@ -28,7 +28,14 @@ export default function DashboardContent() {
   const { agents, loading: agentsLoading, error: agentsError } = useAgents();
   
   // Get real-time system status (updates every 3 seconds)
-  const { systemStatus, loading, error: systemError } = useSystemStatus(3000);
+  // Wrap in try/catch to prevent fatal errors
+  let systemStatusHook = { systemStatus: null, loading: true, error: null };
+  try {
+    systemStatusHook = useSystemStatus(3000);
+  } catch (err) {
+    console.error('Error initializing system status hook:', err);
+  }
+  const { systemStatus, loading, error: systemError } = systemStatusHook;
   
   // State for Ollama models
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);

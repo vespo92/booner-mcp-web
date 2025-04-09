@@ -184,6 +184,7 @@ export const useSystemStatus = (pollingInterval = 5000) => {
   const [error, setError] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [useWebSocket, setUseWebSocket] = useState<boolean>(true);
+  const [wsUrl, setWsUrl] = useState<string>('');
 
   // Function to fetch data via REST API (fallback)
   const fetchViaREST = async () => {
@@ -206,10 +207,27 @@ export const useSystemStatus = (pollingInterval = 5000) => {
 
     // Get WebSocket URL from API URL and convert to WebSocket URL
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
-    const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
+    // Safely convert API URL to WebSocket URL
+    let derivedWsUrl = '';
+    if (apiUrl && typeof apiUrl === 'string') {
+      // Make sure the URL is a string before using replace
+      derivedWsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
+      setWsUrl(derivedWsUrl); // Store in state for later reference
+    } else {
+      console.error('Invalid API URL:', apiUrl);
+      setUseWebSocket(false);
+      return;
+    }
     
     try {
-      const newSocket = new WebSocket(`${wsUrl}/system/status`);
+      // Make sure wsUrl is properly defined before creating WebSocket
+      if (!derivedWsUrl) {
+        console.error('WebSocket URL is empty');
+        setUseWebSocket(false);
+        return;
+      }
+      
+      const newSocket = new WebSocket(`${derivedWsUrl}/system/status`);
       
       newSocket.onopen = () => {
         console.log('WebSocket connection established for system status');
@@ -226,7 +244,13 @@ export const useSystemStatus = (pollingInterval = 5000) => {
           console.log(`Attempting to reconnect WebSocket (${reconnectAttempts}/${maxReconnectAttempts})...`);
           setTimeout(() => {
             try {
-              const reconnectSocket = new WebSocket(`${wsUrl}/system/status`);
+              // Check wsUrl again for safety
+              if (!derivedWsUrl) {
+                console.error('WebSocket URL is empty during reconnect');
+                setUseWebSocket(false);
+                return;
+              }
+              const reconnectSocket = new WebSocket(`${derivedWsUrl}/system/status`);
               setSocket(reconnectSocket);
               // Copy all handlers to new socket
               reconnectSocket.onopen = newSocket.onopen;
@@ -293,6 +317,16 @@ export const useSystemStatus = (pollingInterval = 5000) => {
     
     return () => clearInterval(interval);
   }, [pollingInterval, useWebSocket, socket]);
+
+  // Check for specific errors and provide more helpful feedback
+  useEffect(() => {
+    if (error && error.includes('WebSocket')) {
+      console.warn('WebSocket connection failed, using REST API fallback');
+      // Add a more descriptive error for debugging
+      const detailedError = `WebSocket connection failed (${wsUrl}/system/status). Using REST API fallback. Original error: ${error}`;
+      setError(detailedError);
+    }
+  }, [error]);
 
   return { systemStatus, loading, error };
 };
