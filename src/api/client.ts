@@ -2,21 +2,15 @@ import axios from 'axios';
 
 // Safely determine the base URL
 const getBaseUrl = () => {
-  // Check if we should use the internal API URL (for container-to-container communication)
-  const internalApiUrl = process.env.INTERNAL_API_URL;
-  if (internalApiUrl && typeof internalApiUrl === 'string' && internalApiUrl.trim() !== '' && typeof window === 'undefined') {
-    console.log('Using internal API URL for server-side requests:', internalApiUrl);
-    return internalApiUrl.trim();
-  }
-  
-  // For client-side requests and fallback, use the public API URL
+  // For all requests, use the public API URL that the browser can access
   const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (publicApiUrl && typeof publicApiUrl === 'string' && publicApiUrl.trim() !== '') {
+    console.log('Using API URL:', publicApiUrl);
     return publicApiUrl.trim();
   }
   
-  // Fallback to localhost if not configured
-  return 'http://localhost:8000';
+  // Fallback to host IP (not localhost) if not configured
+  return 'http://10.0.0.4:8000';
 };
 
 // Create base axios instance

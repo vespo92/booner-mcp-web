@@ -208,15 +208,25 @@ export const useSystemStatus = (pollingInterval = 5000) => {
     // Safely determine the WebSocket URL based on the API URL
     try {
       // Always use the browser-accessible URL for WebSockets (NEXT_PUBLIC_API_URL)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
       console.log('DEBUG WebSocket: Initial API URL:', apiUrl);
       
       // Convert HTTP URL to WebSocket URL
       if (typeof apiUrl === 'string' && apiUrl.trim() !== '') {
         // Replace HTTP protocol with WebSocket protocol
-        const wsUrl = apiUrl.trim()
-          .replace('http://', 'ws://')
-          .replace('https://', 'wss://') + '/ws';
+        let wsProtocol = 'ws://';
+        let apiUrlWithoutProtocol = apiUrl.trim();
+        
+        // Handle https URLs
+        if (apiUrl.startsWith('https://')) {
+          wsProtocol = 'wss://';
+          apiUrlWithoutProtocol = apiUrl.replace('https://', '');
+        } else if (apiUrl.startsWith('http://')) {
+          apiUrlWithoutProtocol = apiUrl.replace('http://', '');
+        }
+        
+        // Construct WebSocket URL
+        const wsUrl = `${wsProtocol}${apiUrlWithoutProtocol}/ws`;
         
         console.log('DEBUG WebSocket: Using WebSocket URL:', wsUrl);
         setWsUrl(wsUrl);

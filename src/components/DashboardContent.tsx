@@ -63,14 +63,14 @@ export default function DashboardContent() {
         setOllamaLoading(true);
         console.log('DEBUG: Starting to fetch Ollama models');
         
-        // Get API URL for browser access (always use NEXT_PUBLIC_API_URL)
-        let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        // Use the same host IP that the browser can reach
+        let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
         console.log('DEBUG: Initial apiUrl value:', apiUrl);
         
         // Make sure apiUrl is a valid string and properly formatted
         if (!apiUrl || typeof apiUrl !== 'string') {
           console.error('DEBUG: Invalid API URL:', apiUrl);
-          apiUrl = 'http://localhost:8000'; // Fallback to localhost
+          apiUrl = 'http://10.0.0.4:8000'; // Fallback to IP instead of localhost
         }
         
         console.log('DEBUG: Final apiUrl value:', apiUrl);
