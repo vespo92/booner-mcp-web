@@ -49,43 +49,126 @@ export default function DashboardContent() {
         setOllamaLoading(true);
         
         // Use our proxy endpoint instead of directly connecting to Ollama
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
-        console.log('Fetching models from proxy:', apiUrl);
+        let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
         
-        const response = await fetch(`${apiUrl}/ollama/tags`);
+      // Make sure apiUrl is a valid string and properly formatted
+      if (!apiUrl || typeof apiUrl !== 'string') {
+        console.error('Invalid API URL:', apiUrl);
+        apiUrl = 'http://localhost:8000'; // Fallback to localhost
+      }
+      
+      console.log('Fetching models from proxy:', apiUrl);
+        
+        // Wrap the fetch in a try-catch to handle network errors
+      let response;
+      try {
+        response = await fetch(`${apiUrl}/ollama/tags`);
+      } catch (fetchError) {
+        console.error('Network error fetching Ollama models:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
+      }
         
         if (!response.ok) {
           throw new Error(`Failed to fetch Ollama models: ${response.statusText}`);
         }
         
-        const data = await response.json();
+        // Safely parse the JSON response
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          console.error('Error parsing JSON response:', jsonError);
+          throw new Error(`Invalid JSON response: ${jsonError.message}`);
+        }
         
-        // Transform data into our format
-        if (!data || !data.models || !Array.isArray(data.models)) {
-          console.warn('Unexpected response format from Ollama:', data);
-          // Return empty array to avoid errors
+        // Transform data into our format - add extra validation
+        if (!data) {
+          console.warn('Empty response from Ollama');
           setOllamaModels([]);
           return;
         }
         
-        const models = data.models;
-        const transformedModels = models.map((model: any) => {
-          if (!model || typeof model !== 'object') {
-            return {
-              name: 'Unknown',
-              size: 'Unknown',
-              family: 'Unknown',
-              quantization: 'Unknown',
-              status: 'unknown'
-            };
+        if (typeof data !== 'object') {
+          console.warn('Response is not an object:', typeof data);
+          setOllamaModels([]);
+          return;
+        }
+        
+        if (!data.models) {
+          console.warn('Response missing models property:', data);
+          setOllamaModels([]);
+          return;
+        }
+        
+        if (!Array.isArray(data.models)) {
+          console.warn('Models is not an array:', typeof data.models);
+          setOllamaModels([]);
+          return;
+        }
+        
+        // Safely transform each model with extra validation
+        const transformedModels = data.models.map((model: any, index: number) => {
+          // Create a default model object for invalid data
+          const defaultModel = {
+            name: `Model ${index + 1}`,
+            size: 'Unknown',
+            family: 'Unknown',
+            quantization: 'Unknown',
+            status: 'unknown'
+          };
+          
+          // Check if model is valid
+          if (!model) {
+            console.warn(`Model at index ${index} is null or undefined`);
+            return defaultModel;
           }
           
+          if (typeof model !== 'object') {
+            console.warn(`Model at index ${index} is not an object:`, typeof model);
+            return defaultModel;
+          }
+          
+          // Safely access properties with type checking
+          let modelName = 'Unknown';
+          if (model.name !== undefined) {
+            if (typeof model.name === 'string') {
+              modelName = model.name;
+            } else {
+              // Convert to string if it's not already
+              try {
+                modelName = String(model.name);
+              } catch (e) {
+                console.warn(`Could not convert model name to string:`, e);
+              }
+            }
+          }
+          
+          // Process size with careful type checking
+          let sizeStr = 'Unknown';
+          if (model.size !== undefined) {
+            if (typeof model.size === 'number') {
+              sizeStr = `${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+            } else if (typeof model.size === 'string') {
+              sizeStr = model.size;
+            } else {
+              try {
+                const sizeNum = Number(model.size);
+                if (!isNaN(sizeNum)) {
+                  sizeStr = `${(sizeNum / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+                }
+              } catch (e) {
+                console.warn(`Could not convert model size to number:`, e);
+              }
+            }
+          }
+          
+          // Return the transformed model with safe property access
           return {
-          name: model.name || 'Unknown',
-          size: model.size && typeof model.size === 'number' ? `${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB` : 'Unknown',
-          family: model.family || 'Unknown',
-          quantization: model.quantization || 'Unknown',
-          status: 'active'
+            name: modelName,
+            size: sizeStr,
+            family: typeof model.family === 'string' ? model.family : 'Unknown',
+            quantization: typeof model.quantization === 'string' ? model.quantization : 'Unknown',
+            status: 'active'
           };
         });
         
