@@ -41,10 +41,11 @@ export default function DashboardContent() {
       try {
         setOllamaLoading(true);
         
-        const ollamaUrl = process.env.NEXT_PUBLIC_OLLAMA_API_URL || 'http://10.0.0.10:11434';
-        console.log('Fetching models from:', ollamaUrl);
+        // Use our proxy endpoint instead of directly connecting to Ollama
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
+        console.log('Fetching models from proxy:', apiUrl);
         
-        const response = await fetch(`${ollamaUrl}/api/tags`);
+        const response = await fetch(`${apiUrl}/ollama/tags`);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch Ollama models: ${response.statusText}`);
