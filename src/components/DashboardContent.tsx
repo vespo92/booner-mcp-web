@@ -42,72 +42,111 @@ export default function DashboardContent() {
   const [ollamaLoading, setOllamaLoading] = useState<boolean>(true);
   const [ollamaError, setOllamaError] = useState<string | null>(null);
 
+  // Debug function to safely log objects
+  const safeLog = (label: string, obj: any) => {
+    try {
+      console.log(`DEBUG ${label}:`, obj);
+      if (obj === null) console.log(`DEBUG ${label} is null`);
+      if (obj === undefined) console.log(`DEBUG ${label} is undefined`);
+      if (typeof obj === 'object') {
+        console.log(`DEBUG ${label} keys:`, Object.keys(obj));
+      }
+    } catch (error) {
+      console.log(`DEBUG Error logging ${label}:`, error);
+    }
+  };
+
   // Fetch Ollama models on component mount
   useEffect(() => {
     const fetchOllamaModels = async () => {
       try {
         setOllamaLoading(true);
+        console.log('DEBUG: Starting to fetch Ollama models');
         
         // Use our proxy endpoint instead of directly connecting to Ollama
         let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
+        console.log('DEBUG: Initial apiUrl value:', apiUrl);
         
-      // Make sure apiUrl is a valid string and properly formatted
-      if (!apiUrl || typeof apiUrl !== 'string') {
-        console.error('Invalid API URL:', apiUrl);
-        apiUrl = 'http://localhost:8000'; // Fallback to localhost
-      }
-      
-      console.log('Fetching models from proxy:', apiUrl);
+        // Make sure apiUrl is a valid string and properly formatted
+        if (!apiUrl || typeof apiUrl !== 'string') {
+          console.error('DEBUG: Invalid API URL:', apiUrl);
+          apiUrl = 'http://localhost:8000'; // Fallback to localhost
+        }
+        
+        console.log('DEBUG: Final apiUrl value:', apiUrl);
+        console.log('DEBUG: Full fetch URL:', `${apiUrl}/ollama/tags`);
+        console.log('Fetching models from proxy:', apiUrl);
         
         // Wrap the fetch in a try-catch to handle network errors
-      let response;
-      try {
-        response = await fetch(`${apiUrl}/ollama/tags`);
-      } catch (fetchError) {
-        console.error('Network error fetching Ollama models:', fetchError);
-        throw new Error(`Network error: ${fetchError.message}`);
-      }
+        let response;
+        try {
+          console.log('DEBUG: About to call fetch');
+          response = await fetch(`${apiUrl}/ollama/tags`);
+          console.log('DEBUG: Fetch completed');
+          safeLog('fetch response', response);
+          console.log('DEBUG: Response status:', response.status);
+          console.log('DEBUG: Response ok:', response.ok);
+        } catch (fetchError) {
+          console.error('DEBUG: Network error fetching Ollama models:', fetchError);
+          throw new Error(`Network error: ${fetchError.message}`);
+        }
         
         if (!response.ok) {
+          console.error('DEBUG: Response not OK:', response.status, response.statusText);
           throw new Error(`Failed to fetch Ollama models: ${response.statusText}`);
         }
         
         // Safely parse the JSON response
         let data;
         try {
-          data = await response.json();
+          console.log('DEBUG: About to parse JSON');
+          const textResponse = await response.text();
+          console.log('DEBUG: Raw response text:', textResponse);
+          data = JSON.parse(textResponse);
+          console.log('DEBUG: JSON parsed successfully');
+          safeLog('parsed data', data);
         } catch (jsonError) {
-          console.error('Error parsing JSON response:', jsonError);
+          console.error('DEBUG: Error parsing JSON response:', jsonError);
           throw new Error(`Invalid JSON response: ${jsonError.message}`);
         }
         
         // Transform data into our format - add extra validation
+        console.log('DEBUG: Beginning data validation');
         if (!data) {
-          console.warn('Empty response from Ollama');
+          console.warn('DEBUG: Empty response from Ollama');
           setOllamaModels([]);
           return;
         }
         
+        console.log('DEBUG: Data type:', typeof data);
         if (typeof data !== 'object') {
-          console.warn('Response is not an object:', typeof data);
+          console.warn('DEBUG: Response is not an object:', typeof data);
           setOllamaModels([]);
           return;
         }
         
+        console.log('DEBUG: Data keys:', Object.keys(data));
         if (!data.models) {
-          console.warn('Response missing models property:', data);
+          console.warn('DEBUG: Response missing models property:', data);
           setOllamaModels([]);
           return;
         }
         
+        console.log('DEBUG: Models type:', typeof data.models);
+        console.log('DEBUG: Is models an array?', Array.isArray(data.models));
         if (!Array.isArray(data.models)) {
-          console.warn('Models is not an array:', typeof data.models);
+          console.warn('DEBUG: Models is not an array:', typeof data.models);
           setOllamaModels([]);
           return;
         }
+        
+        console.log('DEBUG: Models array length:', data.models.length);
         
         // Safely transform each model with extra validation
+        console.log('DEBUG: Starting to transform models');
         const transformedModels = data.models.map((model: any, index: number) => {
+          console.log(`DEBUG: Processing model at index ${index}:`, model);
+          
           // Create a default model object for invalid data
           const defaultModel = {
             name: `Model ${index + 1}`,
@@ -119,66 +158,97 @@ export default function DashboardContent() {
           
           // Check if model is valid
           if (!model) {
-            console.warn(`Model at index ${index} is null or undefined`);
+            console.warn(`DEBUG: Model at index ${index} is null or undefined`);
             return defaultModel;
           }
           
+          console.log(`DEBUG: Model type at index ${index}:`, typeof model);
           if (typeof model !== 'object') {
-            console.warn(`Model at index ${index} is not an object:`, typeof model);
+            console.warn(`DEBUG: Model at index ${index} is not an object:`, typeof model);
             return defaultModel;
           }
+          
+          console.log(`DEBUG: Model keys at index ${index}:`, Object.keys(model));
           
           // Safely access properties with type checking
           let modelName = 'Unknown';
-          if (model.name !== undefined) {
+          if ('name' in model) {
+            console.log(`DEBUG: Model name at index ${index}:`, model.name, typeof model.name);
             if (typeof model.name === 'string') {
               modelName = model.name;
             } else {
               // Convert to string if it's not already
               try {
                 modelName = String(model.name);
+                console.log(`DEBUG: Converted model name to string:`, modelName);
               } catch (e) {
-                console.warn(`Could not convert model name to string:`, e);
+                console.warn(`DEBUG: Could not convert model name to string:`, e);
               }
             }
+          } else {
+            console.log(`DEBUG: Model at index ${index} has no name property`);
           }
           
           // Process size with careful type checking
           let sizeStr = 'Unknown';
-          if (model.size !== undefined) {
+          if ('size' in model) {
+            console.log(`DEBUG: Model size at index ${index}:`, model.size, typeof model.size);
             if (typeof model.size === 'number') {
               sizeStr = `${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+              console.log(`DEBUG: Converted size to GB string:`, sizeStr);
             } else if (typeof model.size === 'string') {
               sizeStr = model.size;
             } else {
               try {
                 const sizeNum = Number(model.size);
+                console.log(`DEBUG: Attempted to convert size to number:`, sizeNum);
                 if (!isNaN(sizeNum)) {
                   sizeStr = `${(sizeNum / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+                  console.log(`DEBUG: Converted size to GB string:`, sizeStr);
                 }
               } catch (e) {
-                console.warn(`Could not convert model size to number:`, e);
+                console.warn(`DEBUG: Could not convert model size to number:`, e);
               }
             }
+          } else {
+            console.log(`DEBUG: Model at index ${index} has no size property`);
           }
           
-          // Return the transformed model with safe property access
-          return {
+          // Check other properties safely
+          const familyStr = ('family' in model && typeof model.family === 'string') ? model.family : 'Unknown';
+          console.log(`DEBUG: Model family at index ${index}:`, familyStr);
+          
+          const quantizationStr = ('quantization' in model && typeof model.quantization === 'string') ? model.quantization : 'Unknown';
+          console.log(`DEBUG: Model quantization at index ${index}:`, quantizationStr);
+          
+          // Log the final model object we're creating
+          const finalModel = {
             name: modelName,
             size: sizeStr,
-            family: typeof model.family === 'string' ? model.family : 'Unknown',
-            quantization: typeof model.quantization === 'string' ? model.quantization : 'Unknown',
+            family: familyStr,
+            quantization: quantizationStr,
             status: 'active'
           };
+          console.log(`DEBUG: Final model object for index ${index}:`, finalModel);
+          
+          // Return the transformed model with safe property access
+          return finalModel;
         });
+        
+        console.log('DEBUG: All models transformed successfully');
+        console.log('DEBUG: Final transformed models:', transformedModels);
         
         setOllamaModels(transformedModels);
         setOllamaError(null);
       } catch (error) {
-        console.error('Error fetching Ollama models:', error);
+        console.error('DEBUG: Error in fetchOllamaModels:', error);
+        safeLog('error object', error);
+        console.error('DEBUG: Error message:', error.message);
+        console.error('DEBUG: Error stack:', error.stack);
         setOllamaError(error instanceof Error ? error.message : 'Unknown error');
         
         // For demo purposes, set mock data if we can't connect
+        console.log('DEBUG: Setting mock data due to error');
         setOllamaModels([
           {
             name: 'llama3:8b',

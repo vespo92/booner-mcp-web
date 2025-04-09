@@ -207,14 +207,23 @@ export const useSystemStatus = (pollingInterval = 5000) => {
 
     // Get WebSocket URL from API URL and convert to WebSocket URL
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
+    console.log('DEBUG WebSocket: Initial API URL:', apiUrl);
+    
     // Safely convert API URL to WebSocket URL
     let derivedWsUrl = '';
-    if (apiUrl && typeof apiUrl === 'string') {
-      // Make sure the URL is a string before using replace
-      derivedWsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
-      setWsUrl(derivedWsUrl); // Store in state for later reference
-    } else {
-      console.error('Invalid API URL:', apiUrl);
+    try {
+      if (apiUrl && typeof apiUrl === 'string') {
+        // Make sure the URL is a string before using replace
+        derivedWsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
+        console.log('DEBUG WebSocket: Converted to WS URL:', derivedWsUrl);
+        setWsUrl(derivedWsUrl); // Store in state for later reference
+      } else {
+        console.error('DEBUG WebSocket: Invalid API URL:', apiUrl);
+        setUseWebSocket(false);
+        return;
+      }
+    } catch (error) {
+      console.error('DEBUG WebSocket: Error converting URL:', error);
       setUseWebSocket(false);
       return;
     }
@@ -222,12 +231,14 @@ export const useSystemStatus = (pollingInterval = 5000) => {
     try {
       // Make sure wsUrl is properly defined before creating WebSocket
       if (!derivedWsUrl) {
-        console.error('WebSocket URL is empty');
+        console.error('DEBUG WebSocket: WebSocket URL is empty');
         setUseWebSocket(false);
         return;
       }
       
+      console.log('DEBUG WebSocket: Creating new WebSocket with URL:', `${derivedWsUrl}/system/status`);
       const newSocket = new WebSocket(`${derivedWsUrl}/system/status`);
+      console.log('DEBUG WebSocket: WebSocket instance created:', newSocket);
       
       newSocket.onopen = () => {
         console.log('WebSocket connection established for system status');
@@ -271,23 +282,40 @@ export const useSystemStatus = (pollingInterval = 5000) => {
       
       newSocket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          setSystemStatus(data);
+          console.log('DEBUG WebSocket: Message received:', event);
+          // Safely parse the message data
+          let parsedData;
+          try {
+            if (typeof event.data === 'string') {
+              console.log('DEBUG WebSocket: Message data is a string, parsing as JSON...');
+              parsedData = JSON.parse(event.data);
+              console.log('DEBUG WebSocket: Parsed data:', parsedData);
+            } else {
+              console.error('DEBUG WebSocket: Message data is not a string:', typeof event.data);
+              return;
+            }
+          } catch (parseError) {
+            console.error('DEBUG WebSocket: Error parsing message data:', parseError);
+            console.log('DEBUG WebSocket: Raw message data:', event.data);
+            return;
+          }
+          
+          setSystemStatus(parsedData);
           setLoading(false);
           setError(null);
-        } catch (err: any) {
-          console.error('Error parsing WebSocket data:', err);
+        } catch (err) {
+          console.error('DEBUG WebSocket: Error handling message:', err);
         }
       };
       
       newSocket.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        console.error('DEBUG WebSocket: WebSocket error:', event);
         setError('WebSocket connection error');
         attemptReconnect(); // Try to reconnect before falling back
       };
       
-      newSocket.onclose = () => {
-        console.log('WebSocket connection closed');
+      newSocket.onclose = (event) => {
+        console.log('DEBUG WebSocket: WebSocket connection closed:', event);
         setSocket(null);
       };
       
