@@ -205,39 +205,42 @@ export const useSystemStatus = (pollingInterval = 5000) => {
   useEffect(() => {
     if (!useWebSocket) return;
 
-    // Get WebSocket URL from API URL and convert to WebSocket URL
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
-    console.log('DEBUG WebSocket: Initial API URL:', apiUrl);
-    
-    // Safely convert API URL to WebSocket URL
-    let derivedWsUrl = '';
+    // Safely determine the WebSocket URL based on the API URL
     try {
-      if (apiUrl && typeof apiUrl === 'string') {
-        // Make sure the URL is a string before using replace
-        derivedWsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
-        console.log('DEBUG WebSocket: Converted to WS URL:', derivedWsUrl);
-        setWsUrl(derivedWsUrl); // Store in state for later reference
+      // Always use the browser-accessible URL for WebSockets (NEXT_PUBLIC_API_URL)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      console.log('DEBUG WebSocket: Initial API URL:', apiUrl);
+      
+      // Convert HTTP URL to WebSocket URL
+      if (typeof apiUrl === 'string' && apiUrl.trim() !== '') {
+        // Replace HTTP protocol with WebSocket protocol
+        const wsUrl = apiUrl.trim()
+          .replace('http://', 'ws://')
+          .replace('https://', 'wss://') + '/ws';
+        
+        console.log('DEBUG WebSocket: Using WebSocket URL:', wsUrl);
+        setWsUrl(wsUrl);
       } else {
         console.error('DEBUG WebSocket: Invalid API URL:', apiUrl);
         setUseWebSocket(false);
         return;
       }
     } catch (error) {
-      console.error('DEBUG WebSocket: Error converting URL:', error);
+      console.error('DEBUG WebSocket: Error setting up WebSocket URL:', error);
       setUseWebSocket(false);
       return;
     }
     
     try {
       // Make sure wsUrl is properly defined before creating WebSocket
-      if (!derivedWsUrl) {
+      if (!wsUrl) {
         console.error('DEBUG WebSocket: WebSocket URL is empty');
         setUseWebSocket(false);
         return;
       }
       
-      console.log('DEBUG WebSocket: Creating new WebSocket with URL:', `${derivedWsUrl}/system/status`);
-      const newSocket = new WebSocket(`${derivedWsUrl}/system/status`);
+      console.log('DEBUG WebSocket: Creating new WebSocket with URL:', `${wsUrl}/system/status`);
+      const newSocket = new WebSocket(`${wsUrl}/system/status`);
       console.log('DEBUG WebSocket: WebSocket instance created:', newSocket);
       
       newSocket.onopen = () => {
@@ -256,12 +259,12 @@ export const useSystemStatus = (pollingInterval = 5000) => {
           setTimeout(() => {
             try {
               // Check wsUrl again for safety
-              if (!derivedWsUrl) {
-                console.error('WebSocket URL is empty during reconnect');
+              if (!wsUrl) {
+                console.error('DEBUG WebSocket: WebSocket URL is empty during reconnect');
                 setUseWebSocket(false);
                 return;
               }
-              const reconnectSocket = new WebSocket(`${derivedWsUrl}/system/status`);
+              const reconnectSocket = new WebSocket(`${wsUrl}/system/status`);
               setSocket(reconnectSocket);
               // Copy all handlers to new socket
               reconnectSocket.onopen = newSocket.onopen;

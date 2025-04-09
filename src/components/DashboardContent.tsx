@@ -63,8 +63,8 @@ export default function DashboardContent() {
         setOllamaLoading(true);
         console.log('DEBUG: Starting to fetch Ollama models');
         
-        // Use our proxy endpoint instead of directly connecting to Ollama
-        let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
+        // Get API URL for browser access (always use NEXT_PUBLIC_API_URL)
+        let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         console.log('DEBUG: Initial apiUrl value:', apiUrl);
         
         // Make sure apiUrl is a valid string and properly formatted
