@@ -53,14 +53,33 @@ export default function DashboardContent() {
         const data = await response.json();
         
         // Transform data into our format
-        const models = data.models || [];
-        const transformedModels = models.map((model: any) => ({
-          name: model.name,
-          size: model.size ? `${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB` : 'Unknown',
+        if (!data || !data.models || !Array.isArray(data.models)) {
+          console.warn('Unexpected response format from Ollama:', data);
+          // Return empty array to avoid errors
+          setOllamaModels([]);
+          return;
+        }
+        
+        const models = data.models;
+        const transformedModels = models.map((model: any) => {
+          if (!model || typeof model !== 'object') {
+            return {
+              name: 'Unknown',
+              size: 'Unknown',
+              family: 'Unknown',
+              quantization: 'Unknown',
+              status: 'unknown'
+            };
+          }
+          
+          return {
+          name: model.name || 'Unknown',
+          size: model.size && typeof model.size === 'number' ? `${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB` : 'Unknown',
           family: model.family || 'Unknown',
           quantization: model.quantization || 'Unknown',
           status: 'active'
-        }));
+          };
+        });
         
         setOllamaModels(transformedModels);
         setOllamaError(null);
