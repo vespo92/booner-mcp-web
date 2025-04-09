@@ -25,6 +25,16 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # Use environment variable to bypass TypeScript and ESLint checks
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
+# Accept build arguments for client-side environment variables
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_OLLAMA_API_URL
+ARG NEXT_PUBLIC_AUTH_SECRET
+
+# Set environment variables during build time
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_OLLAMA_API_URL=${NEXT_PUBLIC_OLLAMA_API_URL}
+ENV NEXT_PUBLIC_AUTH_SECRET=${NEXT_PUBLIC_AUTH_SECRET}
+
 # Build with flags to bypass TypeScript and ESLint
 RUN npm run build:docker
 
