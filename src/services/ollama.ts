@@ -12,8 +12,17 @@ const ollamaClient = (baseUrl: string = process.env.NEXT_PUBLIC_OLLAMA_API_URL |
   return {
     // Get list of available models
     getModels: async () => {
-      const response = await client.get('/api/tags');
-      return response.data.models;
+      try {
+        const response = await client.get('/api/tags');
+        if (response && response.data && Array.isArray(response.data.models)) {
+          return response.data.models;
+        }
+        console.log('Received unexpected response format:', response.data);
+        return [];
+      } catch (error) {
+        console.error('Error fetching Ollama models:', error);
+        return [];
+      }
     },
 
     // Generate a completion from a prompt

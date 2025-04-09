@@ -204,8 +204,9 @@ export const useSystemStatus = (pollingInterval = 5000) => {
   useEffect(() => {
     if (!useWebSocket) return;
 
-    // Get WebSocket URL from environment variable or use default
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+    // Get WebSocket URL from API URL and convert to WebSocket URL
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.0.0.4:8000';
+    const wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
     
     try {
       const newSocket = new WebSocket(`${wsUrl}/system/status`);
@@ -214,6 +215,35 @@ export const useSystemStatus = (pollingInterval = 5000) => {
         console.log('WebSocket connection established for system status');
         setError(null);
       };
+      
+      // Try to reconnect if connection fails
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 3;
+      
+      const attemptReconnect = () => {
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          console.log(`Attempting to reconnect WebSocket (${reconnectAttempts}/${maxReconnectAttempts})...`);
+          setTimeout(() => {
+            try {
+              const reconnectSocket = new WebSocket(`${wsUrl}/system/status`);
+              setSocket(reconnectSocket);
+              // Copy all handlers to new socket
+              reconnectSocket.onopen = newSocket.onopen;
+              reconnectSocket.onmessage = newSocket.onmessage;
+              reconnectSocket.onerror = newSocket.onerror;
+              reconnectSocket.onclose = newSocket.onclose;
+            } catch (err) {
+              console.error('Failed to reconnect WebSocket:', err);
+              attemptReconnect();
+            }
+          }, 3000);
+        } else {
+          console.log('Max reconnect attempts reached, falling back to REST API');
+          setUseWebSocket(false);
+        }
+      };
+
       
       newSocket.onmessage = (event) => {
         try {
@@ -229,7 +259,7 @@ export const useSystemStatus = (pollingInterval = 5000) => {
       newSocket.onerror = (event) => {
         console.error('WebSocket error:', event);
         setError('WebSocket connection error');
-        setUseWebSocket(false); // Fall back to REST API
+        attemptReconnect(); // Try to reconnect before falling back
       };
       
       newSocket.onclose = () => {
