@@ -26,22 +26,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   
-  // Initialize auth state from localStorage
+  // Initialize auth state from localStorage and ensure cookie is set
   useEffect(() => {
     // Immediately check localStorage (synchronously)
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     
+    // Helper function to get cookie
+    const getCookie = (name: string): string | null => {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+      return match ? match[2] : null;
+    };
+    
+    // If localStorage has valid data
     if (storedUser && token) {
       try {
         const parsedUser = JSON.parse(storedUser);
         console.log('Found stored user on init:', parsedUser.username);
+        
+        // Check if cookie exists, if not, set it
+        const cookieToken = getCookie('token');
+        if (!cookieToken) {
+          console.log('Cookie token not found, setting from localStorage');
+          document.cookie = `token=${token}; path=/; max-age=86400`;
+        }
+        
         setUser(parsedUser);
         setIsAuthenticated(true);
       } catch (error) {
         console.error('Error parsing stored user:', error);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      }
+    } else {
+      // If cookie exists but localStorage doesn't, clean up cookie
+      const cookieToken = getCookie('token');
+      if (cookieToken) {
+        console.log('Found orphaned cookie token, removing it');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       }
     }
     
@@ -71,6 +94,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('token', tokenValue);
       
+      // Set cookie for middleware authentication
+      document.cookie = `token=${tokenValue}; path=/; max-age=86400`;
+      
       // Update state
       setUser(userData);
       setIsAuthenticated(true);
@@ -90,6 +116,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear authentication data
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    
+    // Remove the authentication cookie
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     
     // Update state
     setUser(null);

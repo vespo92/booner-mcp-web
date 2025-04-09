@@ -19,21 +19,31 @@ export default function AuthGuard({
       // For protected routes, redirect to login if not authenticated
       if (requireAuth && !isAuthenticated) {
         console.log('AuthGuard: Protected route, user not authenticated. Redirecting to login...');
-        // Use a timeout to prevent redirect loops
-        const redirectTimer = setTimeout(() => {
-          window.location.replace('/login');
-        }, 300);
-        return () => clearTimeout(redirectTimer);
+        
+        // Ensure we're not already on the login page to prevent loops
+        const isLoginPage = window.location.pathname === '/login';
+        if (!isLoginPage) {
+          // Use a longer timeout to prevent redirect loops
+          const redirectTimer = setTimeout(() => {
+            window.location.replace('/login');
+          }, 500);
+          return () => clearTimeout(redirectTimer);
+        }
       }
       
       // For login page, redirect to dashboard if already authenticated
       if (!requireAuth && isAuthenticated) {
         console.log('AuthGuard: Login page, user authenticated. Redirecting to dashboard...');
-        // Use a timeout to prevent redirect loops
-        const redirectTimer = setTimeout(() => {
-          window.location.replace('/');
-        }, 300);
-        return () => clearTimeout(redirectTimer);
+        
+        // Ensure we're not already on the dashboard to prevent loops
+        const isDashboardPage = window.location.pathname === '/';
+        if (!isDashboardPage) {
+          // Use a longer timeout to prevent redirect loops
+          const redirectTimer = setTimeout(() => {
+            window.location.replace('/');
+          }, 500);
+          return () => clearTimeout(redirectTimer);
+        }
       }
       
       // Authentication validation complete
